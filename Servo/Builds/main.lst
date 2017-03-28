@@ -1,0 +1,362 @@
+   1               		.file	"main.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   8               		.text
+   9               	.Ltext0:
+ 113               		.section	.text.startup,"ax",@progbits
+ 115               	.global	main
+ 117               	main:
+   1:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** #include <stdio.h>
+   2:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** #include <avr/io.h>
+   3:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** #include <avr/interrupt.h>
+   4:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** #include <util/delay.h>
+   5:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** 
+   6:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** /*
+   7:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  * Code is from here:https://www.newbiehack.com/MicrocontrollerControlAHobbyServo.aspx
+   8:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     * Hesistant bcause I am supposed to use port D. But we all know I can't get PWM out of it... so
+   9:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  
+  10:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  This helped me think why we need 16bit not 8 bit timers!
+  11:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  http://www.embedds.com/controlling-servo-motor-with-avr/
+  12:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  //code from embedds. oculdnt get it to work. even output a signal
+  13:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  NOTES:
+  14:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  - 16 bit timer1
+  15:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  MODE14 - FAST PWM that specifies a maximum, 635535 in decimal 0xFFFF in hex store in OCR1A or ICR1
+  16:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  GAVE UP on this one, tryign another, didn't explain how they got the ICR1 value,
+  17:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  
+  18:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  
+  19:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  More NoteS:
+  20:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  From here:
+  21:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  http://extremeelectronics.co.in/avr-tutorials/servo-motor-control-by-using-avr-atmega32-microcontr
+  22:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  explains how 4999 was chosen for ICR1 = Top Value = 4999 this is based on 16 Mhz.
+  23:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  we have 8Mhz and i don't know wy they use a 64 prescaler, but we will too. 
+  24:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  our top should be 2499. For ICR1
+  25:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  
+  26:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  More Notes:
+  27:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  Gave up on extreme electronics. I cant find how to set up 16bit mode 14 FAst PWM for 328p. Its for
+  28:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  Trying htis now: https://mil.ufl.edu/5666/handouts/ATMPWM.pdf
+  29:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  phase correct mode. 
+  30:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  ICRn (n is the timer number) is the maximum we are using tiemr 1 so 
+  31:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  ICR1 is our max value. 
+  32:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  we need system clock speed (8MHz) and timer1 clock speed (system divided by a presclaler)
+  33:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  //pre scaler is set by the CSn bits in the TCCRn register n is the number again.
+  34:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  ICR1 is the 50hz pwm signal
+  35:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  OCR1A is ther servo A using timer 1
+  36:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  
+  37:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****  */
+  38:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** 
+  39:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** //We need to use the 16bit register. makes sensesince we  are dealing iwth numbers bigger than 255!
+  40:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** // FAST pwm and we will use a top value! justl ike OCR1A for 8 bit
+  41:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** 
+  42:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** int main(void) {
+ 119               	.LM0:
+ 120               	.LFBB1:
+ 121               	/* prologue: function */
+ 122               	/* frame size = 0 */
+ 123               	/* stack size = 0 */
+ 124               	.L__stack_usage = 0
+  43:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     DDRB |= _BV(PB1);
+ 126               	.LM1:
+ 127 0000 219A      		sbi 0x4,1
+  44:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     TCCR1A |= 1<<WGM11 | 1<<COM1A1 | 1<<COM1A0;
+ 129               	.LM2:
+ 130 0002 8091 8000 		lds r24,128
+ 131 0006 826C      		ori r24,lo8(-62)
+ 132 0008 8093 8000 		sts 128,r24
+  45:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     TCCR1B |= 1<<WGM13 | 1<<WGM12 | 1<<CS11;
+ 134               	.LM3:
+ 135 000c 8091 8100 		lds r24,129
+ 136 0010 8A61      		ori r24,lo8(26)
+ 137 0012 8093 8100 		sts 129,r24
+  46:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     ICR1 = 9999; //need this!!! to get to be the correct 16bit. fuckkkkk
+ 139               	.LM4:
+ 140 0016 8FE0      		ldi r24,lo8(15)
+ 141 0018 97E2      		ldi r25,lo8(39)
+ 142 001a 9093 8700 		sts 134+1,r25
+ 143 001e 8093 8600 		sts 134,r24
+ 144 0022 8BE0      		ldi r24,lo8(11)
+ 145 0024 90E0      		ldi r25,0
+ 146               	.L2:
+ 147               	.LBB9:
+ 148               	.LBB10:
+ 149               	.LBB11:
+ 151               	.Ltext1:
+   1:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** /* Copyright (c) 2002, Marek Michalkiewicz
+   2:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    Copyright (c) 2004,2005,2007 Joerg Wunsch
+   3:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    Copyright (c) 2007  Florin-Viorel Petrov
+   4:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    All rights reserved.
+   5:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+   6:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    Redistribution and use in source and binary forms, with or without
+   7:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    modification, are permitted provided that the following conditions are met:
+   8:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+   9:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    * Redistributions of source code must retain the above copyright
+  10:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****      notice, this list of conditions and the following disclaimer.
+  11:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  12:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    * Redistributions in binary form must reproduce the above copyright
+  13:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****      notice, this list of conditions and the following disclaimer in
+  14:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****      the documentation and/or other materials provided with the
+  15:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****      distribution.
+  16:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  17:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    * Neither the name of the copyright holders nor the names of
+  18:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****      contributors may be used to endorse or promote products derived
+  19:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****      from this software without specific prior written permission.
+  20:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  21:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  22:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  23:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  24:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+  25:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  26:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  27:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  28:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  29:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  30:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  31:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   POSSIBILITY OF SUCH DAMAGE. */
+  32:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  33:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** /* $Id: delay.h.in 2506 2016-02-08 10:05:45Z joerg_wunsch $ */
+  34:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  35:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #ifndef _UTIL_DELAY_H_
+  36:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #define _UTIL_DELAY_H_ 1
+  37:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  38:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #ifndef __DOXYGEN__
+  39:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #  ifndef __HAS_DELAY_CYCLES
+  40:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #    define __HAS_DELAY_CYCLES 1
+  41:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #  endif
+  42:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #endif  /* __DOXYGEN__ */
+  43:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  44:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #include <inttypes.h>
+  45:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #include <util/delay_basic.h>
+  46:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #include <math.h>
+  47:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  48:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** /** \file */
+  49:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** /** \defgroup util_delay <util/delay.h>: Convenience functions for busy-wait delay loops
+  50:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     \code
+  51:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     #define F_CPU 1000000UL  // 1 MHz
+  52:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     //#define F_CPU 14.7456E6
+  53:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     #include <util/delay.h>
+  54:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     \endcode
+  55:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  56:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     \note As an alternative method, it is possible to pass the
+  57:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     F_CPU macro down to the compiler from the Makefile.
+  58:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     Obviously, in that case, no \c \#define statement should be
+  59:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     used.
+  60:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  61:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     The functions in this header file are wrappers around the basic
+  62:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     busy-wait functions from <util/delay_basic.h>.  They are meant as
+  63:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     convenience functions where actual time values can be specified
+  64:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     rather than a number of cycles to wait for.  The idea behind is
+  65:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     that compile-time constant expressions will be eliminated by
+  66:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     compiler optimization so floating-point expressions can be used
+  67:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     to calculate the number of delay cycles needed based on the CPU
+  68:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     frequency passed by the macro F_CPU.
+  69:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  70:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     \note In order for these functions to work as intended, compiler
+  71:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     optimizations <em>must</em> be enabled, and the delay time
+  72:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     <em>must</em> be an expression that is a known constant at
+  73:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     compile-time.  If these requirements are not met, the resulting
+  74:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     delay will be much longer (and basically unpredictable), and
+  75:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     applications that otherwise do not use floating-point calculations
+  76:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     will experience severe code bloat by the floating-point library
+  77:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     routines linked into the application.
+  78:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  79:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     The functions available allow the specification of microsecond, and
+  80:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     millisecond delays directly, using the application-supplied macro
+  81:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     F_CPU as the CPU clock frequency (in Hertz).
+  82:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  83:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** */
+  84:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  85:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #if !defined(__DOXYGEN__)
+  86:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** static __inline__ void _delay_us(double __us) __attribute__((__always_inline__));
+  87:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** static __inline__ void _delay_ms(double __ms) __attribute__((__always_inline__));
+  88:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #endif
+  89:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  90:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #ifndef F_CPU
+  91:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** /* prevent compiler error by supplying a default */
+  92:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** # warning "F_CPU not defined for <util/delay.h>"
+  93:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** /** \ingroup util_delay
+  94:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     \def F_CPU
+  95:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     \brief CPU frequency in Hz
+  96:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+  97:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     The macro F_CPU specifies the CPU frequency to be considered by
+  98:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     the delay macros.  This macro is normally supplied by the
+  99:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     environment (e.g. from within a project header, or the project's
+ 100:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     Makefile).  The value 1 MHz here is only provided as a "vanilla"
+ 101:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     fallback if no such user-provided definition could be found.
+ 102:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 103:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     In terms of the delay functions, the CPU frequency can be given as
+ 104:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     a floating-point constant (e.g. 3.6864E6 for 3.6864 MHz).
+ 105:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     However, the macros in <util/setbaud.h> require it to be an
+ 106:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****     integer value.
+ 107:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****  */
+ 108:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** # define F_CPU 1000000UL
+ 109:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #endif
+ 110:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 111:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #ifndef __OPTIMIZE__
+ 112:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** # warning "Compiler optimizations disabled; functions from <util/delay.h> won't work as designed"
+ 113:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #endif
+ 114:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 115:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #if __HAS_DELAY_CYCLES && defined(__OPTIMIZE__) && \
+ 116:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   !defined(__DELAY_BACKWARD_COMPATIBLE__) &&	   \
+ 117:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   __STDC_HOSTED__
+ 118:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #  include <math.h>
+ 119:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #endif
+ 120:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 121:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** /**
+ 122:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    \ingroup util_delay
+ 123:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 124:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    Perform a delay of \c __ms milliseconds, using _delay_loop_2().
+ 125:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 126:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    The macro F_CPU is supposed to be defined to a
+ 127:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    constant defining the CPU clock frequency (in Hertz).
+ 128:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 129:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    The maximal possible delay is 262.14 ms / F_CPU in MHz.
+ 130:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 131:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    When the user request delay which exceed the maximum possible one,
+ 132:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    _delay_ms() provides a decreased resolution functionality. In this
+ 133:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    mode _delay_ms() will work with a resolution of 1/10 ms, providing
+ 134:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    delays up to 6.5535 seconds (independent from CPU frequency).  The
+ 135:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    user will not be informed about decreased resolution.
+ 136:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 137:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    If the avr-gcc toolchain has __builtin_avr_delay_cycles()
+ 138:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    support, maximal possible delay is 4294967.295 ms/ F_CPU in MHz. For
+ 139:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    values greater than the maximal possible delay, overflows results in
+ 140:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    no delay i.e., 0ms.
+ 141:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 142:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    Conversion of \c __ms into clock cycles may not always result in
+ 143:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    integer.  By default, the clock cycles rounded up to next
+ 144:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    integer. This ensures that the user gets at least \c __ms
+ 145:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    microseconds of delay.
+ 146:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 147:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    Alternatively, by defining the macro \c __DELAY_ROUND_DOWN__, or
+ 148:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    \c __DELAY_ROUND_CLOSEST__, before including this header file, the
+ 149:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    algorithm can be made to round down, or round to closest integer,
+ 150:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    respectively.
+ 151:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 152:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    \note
+ 153:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 154:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    The implementation of _delay_ms() based on
+ 155:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    __builtin_avr_delay_cycles() is not backward compatible with older
+ 156:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    implementations.  In order to get functionality backward compatible
+ 157:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    with previous versions, the macro \c "__DELAY_BACKWARD_COMPATIBLE__"
+ 158:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    must be defined before including this header file. Also, the
+ 159:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    backward compatible algorithm will be chosen if the code is
+ 160:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    compiled in a <em>freestanding environment</em> (GCC option
+ 161:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    \c -ffreestanding), as the math functions required for rounding are
+ 162:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****    not available to the compiler then.
+ 163:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 164:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****  */
+ 165:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** void
+ 166:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** _delay_ms(double __ms)
+ 167:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** {
+ 168:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 	double __tmp ;
+ 169:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** #if __HAS_DELAY_CYCLES && defined(__OPTIMIZE__) && \
+ 170:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   !defined(__DELAY_BACKWARD_COMPATIBLE__) &&	   \
+ 171:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h ****   __STDC_HOSTED__
+ 172:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 	uint32_t __ticks_dc;
+ 173:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 	extern void __builtin_avr_delay_cycles(unsigned long);
+ 174:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 	__tmp = ((F_CPU) / 1e3) * __ms;
+ 175:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 176:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 	#if defined(__DELAY_ROUND_DOWN__)
+ 177:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 		__ticks_dc = (uint32_t)fabs(__tmp);
+ 178:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 179:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 	#elif defined(__DELAY_ROUND_CLOSEST__)
+ 180:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 		__ticks_dc = (uint32_t)(fabs(__tmp)+0.5);
+ 181:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 182:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 	#else
+ 183:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 		//round up by default
+ 184:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 		__ticks_dc = (uint32_t)(ceil(fabs(__tmp)));
+ 185:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 	#endif
+ 186:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 
+ 187:/usr/local/Cellar/avr-gcc/6.2.0/avr/include/util/delay.h **** 	__builtin_avr_delay_cycles(__ticks_dc);
+ 153               	.LM5:
+ 154 0026 2FEF      		ldi r18,lo8(799999)
+ 155 0028 34E3      		ldi r19,hi8(799999)
+ 156 002a 4CE0      		ldi r20,hlo8(799999)
+ 157 002c 2150      	1:	subi r18,1
+ 158 002e 3040      		sbci r19,0
+ 159 0030 4040      		sbci r20,0
+ 160 0032 01F4      		brne 1b
+ 161 0034 00C0      		rjmp .
+ 162 0036 0000      		nop
+ 163               	.LBE11:
+ 164               	.LBE10:
+ 166               	.Ltext2:
+  47:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     //the math to get that is you do 50hz = system clock/ (2*prescale (i used 8) * TOP) and TOP = I
+  48:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     
+  49:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c **** //
+  50:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     for(int i= 0; i<=10; i++){
+  51:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****         _delay_ms(500);
+  52:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     OCR1A = ICR1 - 2000; //18000
+ 168               	.LM6:
+ 169 0038 2091 8600 		lds r18,134
+ 170 003c 3091 8700 		lds r19,134+1
+ 171 0040 205D      		subi r18,-48
+ 172 0042 3740      		sbci r19,7
+ 173 0044 3093 8900 		sts 136+1,r19
+ 174 0048 2093 8800 		sts 136,r18
+ 175               	.LBB12:
+ 176               	.LBB13:
+ 178               	.Ltext3:
+ 180               	.LM7:
+ 181 004c 2FEF      		ldi r18,lo8(799999)
+ 182 004e 34E3      		ldi r19,hi8(799999)
+ 183 0050 4CE0      		ldi r20,hlo8(799999)
+ 184 0052 2150      	1:	subi r18,1
+ 185 0054 3040      		sbci r19,0
+ 186 0056 4040      		sbci r20,0
+ 187 0058 01F4      		brne 1b
+ 188 005a 00C0      		rjmp .
+ 189 005c 0000      		nop
+ 190               	.LBE13:
+ 191               	.LBE12:
+ 193               	.Ltext4:
+  53:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     
+  54:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     _delay_ms(500);
+  55:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     
+  56:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****     OCR1A = ICR1 - 1000; //1000 milisecond
+ 195               	.LM8:
+ 196 005e 2091 8600 		lds r18,134
+ 197 0062 3091 8700 		lds r19,134+1
+ 198 0066 285E      		subi r18,-24
+ 199 0068 3340      		sbci r19,3
+ 200 006a 3093 8900 		sts 136+1,r19
+ 201 006e 2093 8800 		sts 136,r18
+ 202               	.LBB14:
+ 203               	.LBB15:
+ 205               	.Ltext5:
+ 207               	.LM9:
+ 208 0072 2FEF      		ldi r18,lo8(799999)
+ 209 0074 34E3      		ldi r19,hi8(799999)
+ 210 0076 4CE0      		ldi r20,hlo8(799999)
+ 211 0078 2150      	1:	subi r18,1
+ 212 007a 3040      		sbci r19,0
+ 213 007c 4040      		sbci r20,0
+ 214 007e 01F4      		brne 1b
+ 215 0080 00C0      		rjmp .
+ 216 0082 0000      		nop
+ 217 0084 0197      		sbiw r24,1
+ 218               	.LBE15:
+ 219               	.LBE14:
+ 221               	.Ltext6:
+  50:/Users/kevinKuwata1/Documents/xcode/Servo/Servo/main.c ****         _delay_ms(500);
+ 223               	.LM10:
+ 224 0086 01F4      		brne .L2
+ 225               	.L3:
+ 226 0088 00C0      		rjmp .L3
+ 227               	.LBE9:
+ 229               	.Lscope1:
+ 230               		.text
+ 232               	.Letext0:
+ 233               		.ident	"GCC: (GNU) 6.2.0"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 main.c
+/var/folders/lm/s_klhqwn77z639t7_2gx62rr0000gn/T//ccB26v0Z.s:2      *ABS*:000000000000003e __SP_H__
+/var/folders/lm/s_klhqwn77z639t7_2gx62rr0000gn/T//ccB26v0Z.s:3      *ABS*:000000000000003d __SP_L__
+/var/folders/lm/s_klhqwn77z639t7_2gx62rr0000gn/T//ccB26v0Z.s:4      *ABS*:000000000000003f __SREG__
+/var/folders/lm/s_klhqwn77z639t7_2gx62rr0000gn/T//ccB26v0Z.s:5      *ABS*:0000000000000000 __tmp_reg__
+/var/folders/lm/s_klhqwn77z639t7_2gx62rr0000gn/T//ccB26v0Z.s:6      *ABS*:0000000000000001 __zero_reg__
+/var/folders/lm/s_klhqwn77z639t7_2gx62rr0000gn/T//ccB26v0Z.s:117    .text.startup:0000000000000000 main
+
+NO UNDEFINED SYMBOLS
